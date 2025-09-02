@@ -1,0 +1,317 @@
+#+title: 升级包签名加密实战
+#+author: 赵光建
+#+date: 2025-09-02
+#+options: ^:nil
+
+* 升级包为什么需要安全保护
+离线升级包一般暴露在公开环境中，容易被恶意攻击者获得\\
+离线升级包中包含了重要信息，比如业务数据，漏洞补丁，程序文件，升级脚本等\\
+如果被恶意攻击者分析出，直接造成数据泄露\\
+如果被恶意攻击者构造出巧妙的假升级包，会造成业务系统被入侵或者破坏\\
+所以需要实现升级包文件的防篡改和防泄露
+
+* 我是如何保护的
+通过数字签名和验证实现了防篡改\\
+通过对称加密实现了防泄漏
+
+* 实现思路
+明文文件 --签名--> 签名文件\\
+明文文件 + 签名文件 --合并--> 包含签名的明文文件\\
+包含签名的明文文件 --加密--> 加密文件 + nonce文件\\
+加密文件 + nonce文件 --合并--> 最终外发升级文件\\
+
+* 代码实现
+** 生成签名密钥和加密密钥
+将会在 output 目录生成三个文件：\\
+signing_key.bin：签名密钥，保护好，不要泄漏出去\\
+verifying_key.bin：验签密钥，集成到业务平台\\
+aes-256.bin：加解密密钥，集成到业务平台\\
+
+代码如下：
+#+begin_src rust
+use std::{
+    fs::{self, File},
+    io::Write,
+    path::Path,
+};
+
+use aes_gcm::{Aes256Gcm, KeyInit};
+use ed25519_dalek::SigningKey;
+use rand::rngs::OsRng;
+use secure_vault::{AES_256_KYE_FILE, SIGNING_KEY_FILE, VERIFYING_KEY_FILE};
+
+const OUTPUT_DIR: &str = "./output";
+const SIGNING_KEY_FILE: &str = "signing_key.bin";
+const VERIFYING_KEY_FILE: &str = "verifying_key.bin";
+const AES_256_KYE_FILE: &str = "aes-256.bin";
+
+fn main() -> anyhow::Result<()> {
+    let output_dir = Path::new(OUTPUT_DIR);
+    if !output_dir.exists() {
+        fs::create_dir_all(output_dir)?;
+    }
+    // 生成签名密钥
+    let mut csprng = OsRng;
+    let signing_key: SigningKey = SigningKey::generate(&mut csprng);
+
+    // 保存签名密钥
+    let mut file = File::create(output_dir.join(SIGNING_KEY_FILE))?;
+    let signing_key_bytes = signing_key.to_bytes();
+    file.write_all(&signing_key_bytes)?;
+
+    // 保存验签密钥
+    let mut file = File::create(output_dir.join(VERIFYING_KEY_FILE))?;
+    let verifying_key_bytes = signing_key.verifying_key().to_bytes();
+    file.write_all(&verifying_key_bytes)?;
+
+    // 生成密钥并保存为文件
+    let aes_256_key = Aes256Gcm::generate_key(aes_gcm::aead::OsRng);
+    let mut file = File::create(output_dir.join(AES_256_KYE_FILE))?;
+    file.write_all(&aes_256_key)?;
+
+    Ok(())
+}
+#+end_src
+** 签名加密，解密验签
+fn sign_and_encrypt：实现了签名和加密\\
+fn decrypt_and_verifying：实现了解密和验签
+
+代码如下：
+#+begin_src rust
+use std::{
+    fs::{self, File},
+    io::Read,
+    path::Path,
+};
+
+use aes_gcm::{AeadCore, Aes256Gcm, Key, KeyInit, aead::Aead};
+use ed25519_dalek::{
+    PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, SIGNATURE_LENGTH, Signature, Signer, SigningKey,
+    Verifier, VerifyingKey,
+};
+use rand::rngs::OsRng;
+
+pub const SIGNING_KEY_FILE: &str = "signing_key.bin";
+pub const VERIFYING_KEY_FILE: &str = "verifying_key.bin";
+pub const AES_256_KYE_FILE: &str = "aes-256.bin";
+const CONFIG_DIR: &str = "./config";
+
+pub fn sign_and_encrypt(plaintext: &[u8]) -> anyhow::Result<Vec<u8>> {
+    let config_dir = Path::new(CONFIG_DIR);
+    if !config_dir.exists() {
+        fs::create_dir_all(config_dir)?;
+    }
+
+    // 读取签名密钥
+    let mut file = File::open(config_dir.join(SIGNING_KEY_FILE))?;
+    let mut signing_key_bytes = [0u8; SECRET_KEY_LENGTH];
+    file.read_exact(&mut signing_key_bytes)?;
+    let signing_key = SigningKey::from_bytes(&signing_key_bytes);
+
+    // 签名
+    let signature = signing_key.sign(plaintext);
+    let signature_bytes = signature.to_bytes();
+
+    // 拼接签名文件和原文件
+    let mut sign_plain = Vec::with_capacity(signature_bytes.len() + plaintext.len());
+    sign_plain.extend_from_slice(&signature_bytes);
+    sign_plain.extend_from_slice(plaintext);
+
+    // 读取密钥文件
+    let mut file = File::open(config_dir.join(AES_256_KYE_FILE))?;
+    let mut aes_256_key_bytes = [0u8; 32];
+    file.read_exact(&mut aes_256_key_bytes)?;
+    let aes_256_key = Key::<Aes256Gcm>::from_slice(&aes_256_key_bytes);
+
+    let cipher = Aes256Gcm::new(aes_256_key);
+    let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+    let ciphertext = match cipher.encrypt(&nonce, sign_plain.as_ref()) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(anyhow::anyhow!("encrypt err: {}", e));
+        }
+    };
+    let mut nonce_cipher = Vec::with_capacity(nonce.len() + ciphertext.len());
+    nonce_cipher.extend_from_slice(&nonce);
+    nonce_cipher.extend_from_slice(&ciphertext);
+    Ok(nonce_cipher)
+}
+
+pub fn decrypt_and_verifying(nonce_cipher: &[u8]) -> anyhow::Result<Vec<u8>> {
+    let config_dir = Path::new(CONFIG_DIR);
+    if !config_dir.exists() {
+        fs::create_dir_all(config_dir)?;
+    }
+
+    let mut file = File::open(config_dir.join(AES_256_KYE_FILE))?;
+    let mut aes_256_key_bytes = [0u8; 32];
+    file.read_exact(&mut aes_256_key_bytes)?;
+    let aes_256_key = Key::<Aes256Gcm>::from_slice(&aes_256_key_bytes);
+    let cipher = Aes256Gcm::new(aes_256_key);
+    let nonce = &nonce_cipher[..12];
+    let ciphertext = &nonce_cipher[12..];
+    let sign_plain = match cipher.decrypt(nonce.into(), ciphertext) {
+        Ok(v) => v,
+        Err(e) => {
+            return Err(anyhow::anyhow!("decrypt err: {}", e));
+        }
+    };
+
+    let signature_bytes = &sign_plain[..SIGNATURE_LENGTH];
+    let signature_bytes: [u8; SIGNATURE_LENGTH] = signature_bytes.try_into()?;
+    let signature = Signature::from_bytes(&signature_bytes);
+    let plaintext_bytes = &sign_plain[SIGNATURE_LENGTH..];
+
+    let mut file = File::open(config_dir.join(VERIFYING_KEY_FILE))?;
+    let mut verifying_key_bytes = [0u8; PUBLIC_KEY_LENGTH];
+    file.read_exact(&mut verifying_key_bytes)?;
+    let verifying_key = VerifyingKey::from_bytes(&verifying_key_bytes)?;
+    match verifying_key.verify(plaintext_bytes, &signature) {
+        Ok(_) => Ok(plaintext_bytes.to_vec()),
+        Err(e) => Err(anyhow::anyhow!("verify err: {}", e)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use super::*;
+
+    #[test]
+    fn en_de_test() -> anyhow::Result<()> {
+        let data_path = Path::new("./data");
+        if !data_path.exists() {
+            fs::create_dir_all(data_path)?;
+        }
+        let message: &[u8] = b"This is a test of the tsunami alert system.";
+        let message_file = "message.txt";
+        let output_file = "output.txt";
+        let mut file = File::create(data_path.join(message_file))?;
+        file.write_all(message)?;
+
+        let message = &fs::read(data_path.join(message_file))?[..];
+        let tmp = sign_and_encrypt(message)?;
+        let output = decrypt_and_verifying(&tmp)?;
+        let mut file = File::create(data_path.join(output_file))?;
+        file.write_all(&output)?;
+        Ok(())
+    }
+}
+
+#+end_src
+** 通过RESTful API提供签名加密服务
+提供了 RESTful API 服务，启动服务后，通过 curl 命令即可调用签名加密操作\\
+需要将之前生成的签名密钥和加密密钥拷贝到 config 目录
+
+代码如下：
+#+begin_src rust
+use axum::{
+    Router,
+    extract::{DefaultBodyLimit, Multipart},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
+    response::IntoResponse,
+    routing::post,
+};
+
+use once_cell::sync::Lazy;
+use secure_vault::sign_and_encrypt;
+use serde::Deserialize;
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    log4rs::init_file("./config/log4rs.yml", Default::default())?;
+    let app = Router::new()
+        .route("/", post(handler))
+        .layer(DefaultBodyLimit::max(1024 * 1024 * 1024 * 4));
+
+    let listener = tokio::net::TcpListener::bind(&CONFIG_TOML.server.addr).await?;
+    log::info!("listening on {}", listener.local_addr()?);
+    axum::serve(listener, app).await?;
+    Ok(())
+}
+async fn handler(mut multipart: Multipart) -> impl IntoResponse {
+    if let Some(field) = match multipart.next_field().await {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("multipart.next_field err: {}", e);
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+    } {
+        if let Some(name) = field.name() {
+            log::info!("name: {name}");
+        }
+        log::info!("file_name: {:?}", field.file_name());
+
+        if let Some(content_type) = field.content_type() {
+            log::info!("content_type: {content_type}");
+        } else {
+            log::error!("content_type none");
+            return StatusCode::BAD_REQUEST.into_response();
+        }
+
+        let content_bytes = match field.bytes().await {
+            Ok(bytes) => bytes,
+            Err(e_bytes) => {
+                log::error!("get field bytes err: {}", e_bytes);
+                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            }
+        };
+        let upgrade_pkg_bytes = match sign_and_encrypt(&content_bytes) {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("upgrade pkg is illegal, err: {}", e);
+                return StatusCode::BAD_REQUEST.into_response();
+            }
+        };
+        log::info!("sign_and_encrypt success, ready to download");
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::CONTENT_TYPE,
+            HeaderValue::from_static("application/octet-stream"),
+        );
+        headers.insert(
+            header::CONTENT_DISPOSITION,
+            HeaderValue::from_static("attachment; filename=\"encrypted.bin\""),
+        );
+        (StatusCode::OK, headers, upgrade_pkg_bytes).into_response()
+    } else {
+        log::error!("not have field");
+        StatusCode::BAD_REQUEST.into_response()
+    }
+}
+
+static CONFIG_TOML: Lazy<ServerToml> = Lazy::new(|| {
+    config::Config::builder()
+        .add_source(config::File::with_name("./config/secure_vault.toml"))
+        .build()
+        .unwrap()
+        .try_deserialize::<ServerToml>()
+        .unwrap()
+});
+
+#[derive(Debug, Deserialize)]
+struct ServerToml {
+    server: Server,
+}
+
+#[derive(Debug, Deserialize)]
+struct Server {
+    addr: String,
+}
+#+end_src
+
+curl 命令如下：
+#+begin_src shell
+curl -v -X POST http://127.0.0.1:2023/ \
+  -F "file=@shear_server_upgrade.tar.gz" \
+  -o shear_server_upgrade.bin
+#+end_src
+
+* 走过的弯路
+** 合并文件采用zip打包方式
+签名文件大小固定，nonce文件大小固定，有条件合并和分离文件\\
+采用zip方式增加了开发量和依赖库，不是好办法
+
+** 密钥保存为明文可见字符
+密钥不需要传输，不需要给人看，没有必要转成明文，直接保存为二进制格式即可

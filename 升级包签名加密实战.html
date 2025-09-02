@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>升级包签名加密实战</title>
+<!-- 2025-09-02 Tue 13:30 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="Org-mode">
+<meta name="author" content="赵光建">
+
+<link  href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.5/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.5/js/bootstrap.min.js"></script>
+<style>
+/* org mode styles on top of twbs */
+
+html {
+    position: relative;
+    min-height: 100%;
+}
+
+body {
+    font-size: 18px;
+    margin-bottom: 105px;
+}
+
+footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 101px;
+    background-color: #f5f5f5;
+}
+
+footer > div {
+    padding: 10px;
+}
+
+footer p {
+    margin: 0 0 5px;
+    text-align: center;
+    font-size: 16px;
+}
+
+#table-of-contents {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+blockquote p {
+    font-size: 18px;
+}
+
+pre {
+    font-size: 16px;
+}
+
+.footpara {
+    display: inline-block;
+}
+
+figcaption {
+  font-size: 16px;
+  color: #666;
+  font-style: italic;
+  padding-bottom: 15px;
+}
+
+/* from twbs docs */
+
+.bs-docs-sidebar.affix {
+    position: static;
+}
+@media (min-width: 768px) {
+    .bs-docs-sidebar {
+        padding-left: 20px;
+    }
+}
+
+/* All levels of nav */
+.bs-docs-sidebar .nav > li > a {
+    display: block;
+    padding: 4px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #999;
+}
+.bs-docs-sidebar .nav > li > a:hover,
+.bs-docs-sidebar .nav > li > a:focus {
+    padding-left: 19px;
+    color: #A1283B;
+    text-decoration: none;
+    background-color: transparent;
+    border-left: 1px solid #A1283B;
+}
+.bs-docs-sidebar .nav > .active > a,
+.bs-docs-sidebar .nav > .active:hover > a,
+.bs-docs-sidebar .nav > .active:focus > a {
+    padding-left: 18px;
+    font-weight: bold;
+    color: #A1283B;
+    background-color: transparent;
+    border-left: 2px solid #A1283B;
+}
+
+/* Nav: second level (shown on .active) */
+.bs-docs-sidebar .nav .nav {
+    display: none; /* Hide by default, but at >768px, show it */
+    padding-bottom: 10px;
+}
+.bs-docs-sidebar .nav .nav > li > a {
+    padding-top: 1px;
+    padding-bottom: 1px;
+    padding-left: 30px;
+    font-size: 12px;
+    font-weight: normal;
+}
+.bs-docs-sidebar .nav .nav > li > a:hover,
+.bs-docs-sidebar .nav .nav > li > a:focus {
+    padding-left: 29px;
+}
+.bs-docs-sidebar .nav .nav > .active > a,
+.bs-docs-sidebar .nav .nav > .active:hover > a,
+.bs-docs-sidebar .nav .nav > .active:focus > a {
+    padding-left: 28px;
+    font-weight: 500;
+}
+
+/* Nav: third level (shown on .active) */
+.bs-docs-sidebar .nav .nav .nav {
+    padding-bottom: 10px;
+}
+.bs-docs-sidebar .nav .nav .nav > li > a {
+    padding-top: 1px;
+    padding-bottom: 1px;
+    padding-left: 40px;
+    font-size: 12px;
+    font-weight: normal;
+}
+.bs-docs-sidebar .nav .nav .nav > li > a:hover,
+.bs-docs-sidebar .nav .nav .nav > li > a:focus {
+    padding-left: 39px;
+}
+.bs-docs-sidebar .nav .nav .nav > .active > a,
+.bs-docs-sidebar .nav .nav .nav > .active:hover > a,
+.bs-docs-sidebar .nav .nav .nav > .active:focus > a {
+    padding-left: 38px;
+    font-weight: 500;
+}
+
+/* Show and affix the side nav when space allows it */
+@media (min-width: 992px) {
+    .bs-docs-sidebar .nav > .active > ul {
+        display: block;
+    }
+    /* Widen the fixed sidebar */
+    .bs-docs-sidebar.affix,
+    .bs-docs-sidebar.affix-bottom {
+        width: 213px;
+    }
+    .bs-docs-sidebar.affix {
+        position: fixed; /* Undo the static from mobile first approach */
+        top: 20px;
+    }
+    .bs-docs-sidebar.affix-bottom {
+        position: absolute; /* Undo the static from mobile first approach */
+    }
+    .bs-docs-sidebar.affix .bs-docs-sidenav,.bs-docs-sidebar.affix-bottom .bs-docs-sidenav {
+        margin-top: 0;
+        margin-bottom: 0
+    }
+}
+@media (min-width: 1200px) {
+    /* Widen the fixed sidebar again */
+    .bs-docs-sidebar.affix-bottom,
+    .bs-docs-sidebar.affix {
+        width: 263px;
+    }
+}
+</style>
+<script>
+$(function() {
+    'use strict';
+
+    $('.bs-docs-sidebar li').first().addClass('active');
+
+    $(document.body).scrollspy({target: '.bs-docs-sidebar'});
+
+    $('.bs-docs-sidebar').affix();
+});
+</script>
+</head>
+<body>
+<div id="content" class="container">
+<div class="row"><div class="col-md-3 col-md-push-9"><nav id="table-of-contents">
+<div id="text-table-of-contents" class="bs-docs-sidebar">
+<ul class="nav">
+<li><a href="#sec-1">1. 升级包为什么需要安全保护</a></li>
+<li><a href="#sec-2">2. 我是如何保护的</a></li>
+<li><a href="#sec-3">3. 实现思路</a></li>
+<li><a href="#sec-4">4. 代码实现</a>
+<ul class="nav">
+<li><a href="#sec-4-1">4.1. 生成签名密钥和加密密钥</a></li>
+<li><a href="#sec-4-2">4.2. 签名加密，解密验签</a></li>
+<li><a href="#sec-4-3">4.3. 通过RESTful API提供签名加密服务</a></li>
+</ul>
+</li>
+<li><a href="#sec-5">5. 走过的弯路</a>
+<ul class="nav">
+<li><a href="#sec-5-1">5.1. 合并文件采用zip打包方式</a></li>
+<li><a href="#sec-5-2">5.2. 密钥保存为明文可见字符</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</nav>
+</div><div class="col-md-9 col-md-pull-3"><h1 class="title">升级包签名加密实战</h1>
+
+<div id="outline-container-sec-1" class="outline-2">
+<h2 id="sec-1"><span class="section-number-2">1</span> 升级包为什么需要安全保护</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+离线升级包一般暴露在公开环境中，容易被恶意攻击者获得<br >
+离线升级包中包含了重要信息，比如业务数据，漏洞补丁，程序文件，升级脚本等<br >
+如果被恶意攻击者分析出，直接造成数据泄露<br >
+如果被恶意攻击者构造出巧妙的假升级包，会造成业务系统被入侵或者破坏<br >
+所以需要实现升级包文件的防篡改和防泄露
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-2" class="outline-2">
+<h2 id="sec-2"><span class="section-number-2">2</span> 我是如何保护的</h2>
+<div class="outline-text-2" id="text-2">
+<p>
+通过数字签名和验证实现了防篡改<br >
+通过对称加密实现了防泄漏
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-3" class="outline-2">
+<h2 id="sec-3"><span class="section-number-2">3</span> 实现思路</h2>
+<div class="outline-text-2" id="text-3">
+<p>
+明文文件 &#x2013;签名&#x2013;&gt; 签名文件<br >
+明文文件 + 签名文件 &#x2013;合并&#x2013;&gt; 包含签名的明文文件<br >
+包含签名的明文文件 &#x2013;加密&#x2013;&gt; 加密文件 + nonce文件<br >
+加密文件 + nonce文件 &#x2013;合并&#x2013;&gt; 最终外发升级文件<br >
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-4" class="outline-2">
+<h2 id="sec-4"><span class="section-number-2">4</span> 代码实现</h2>
+<div class="outline-text-2" id="text-4">
+</div><div id="outline-container-sec-4-1" class="outline-3">
+<h3 id="sec-4-1"><span class="section-number-3">4.1</span> 生成签名密钥和加密密钥</h3>
+<div class="outline-text-3" id="text-4-1">
+<p>
+将会在 output 目录生成三个文件：<br >
+signing_key.bin：签名密钥，保护好，不要泄漏出去<br >
+verifying_key.bin：验签密钥，集成到业务平台<br >
+aes-256.bin：加解密密钥，集成到业务平台<br >
+</p>
+
+<p>
+代码如下：
+</p>
+<div class="org-src-container">
+
+<pre class="src src-rust">use std::{
+    fs::{self, File},
+    io::Write,
+    path::Path,
+};
+
+use aes_gcm::{Aes256Gcm, KeyInit};
+use ed25519_dalek::SigningKey;
+use rand::rngs::OsRng;
+use secure_vault::{AES_256_KYE_FILE, SIGNING_KEY_FILE, VERIFYING_KEY_FILE};
+
+const OUTPUT_DIR: &amp;str = "./output";
+const SIGNING_KEY_FILE: &amp;str = "signing_key.bin";
+const VERIFYING_KEY_FILE: &amp;str = "verifying_key.bin";
+const AES_256_KYE_FILE: &amp;str = "aes-256.bin";
+
+fn main() -&gt; anyhow::Result&lt;()&gt; {
+    let output_dir = Path::new(OUTPUT_DIR);
+    if !output_dir.exists() {
+	fs::create_dir_all(output_dir)?;
+    }
+    // 生成签名密钥
+    let mut csprng = OsRng;
+    let signing_key: SigningKey = SigningKey::generate(&amp;mut csprng);
+
+    // 保存签名密钥
+    let mut file = File::create(output_dir.join(SIGNING_KEY_FILE))?;
+    let signing_key_bytes = signing_key.to_bytes();
+    file.write_all(&amp;signing_key_bytes)?;
+
+    // 保存验签密钥
+    let mut file = File::create(output_dir.join(VERIFYING_KEY_FILE))?;
+    let verifying_key_bytes = signing_key.verifying_key().to_bytes();
+    file.write_all(&amp;verifying_key_bytes)?;
+
+    // 生成密钥并保存为文件
+    let aes_256_key = Aes256Gcm::generate_key(aes_gcm::aead::OsRng);
+    let mut file = File::create(output_dir.join(AES_256_KYE_FILE))?;
+    file.write_all(&amp;aes_256_key)?;
+
+    Ok(())
+}
+</pre>
+</div>
+</div>
+</div>
+<div id="outline-container-sec-4-2" class="outline-3">
+<h3 id="sec-4-2"><span class="section-number-3">4.2</span> 签名加密，解密验签</h3>
+<div class="outline-text-3" id="text-4-2">
+<p>
+fn sign_and_encrypt：实现了签名和加密<br >
+fn decrypt_and_verifying：实现了解密和验签
+</p>
+
+<p>
+代码如下：
+</p>
+<div class="org-src-container">
+
+<pre class="src src-rust">use std::{
+    fs::{self, File},
+    io::Read,
+    path::Path,
+};
+
+use aes_gcm::{AeadCore, Aes256Gcm, Key, KeyInit, aead::Aead};
+use ed25519_dalek::{
+    PUBLIC_KEY_LENGTH, SECRET_KEY_LENGTH, SIGNATURE_LENGTH, Signature, Signer, SigningKey,
+    Verifier, VerifyingKey,
+};
+use rand::rngs::OsRng;
+
+pub const SIGNING_KEY_FILE: &amp;str = "signing_key.bin";
+pub const VERIFYING_KEY_FILE: &amp;str = "verifying_key.bin";
+pub const AES_256_KYE_FILE: &amp;str = "aes-256.bin";
+const CONFIG_DIR: &amp;str = "./config";
+
+pub fn sign_and_encrypt(plaintext: &amp;[u8]) -&gt; anyhow::Result&lt;Vec&lt;u8&gt;&gt; {
+    let config_dir = Path::new(CONFIG_DIR);
+    if !config_dir.exists() {
+	fs::create_dir_all(config_dir)?;
+    }
+
+    // 读取签名密钥
+    let mut file = File::open(config_dir.join(SIGNING_KEY_FILE))?;
+    let mut signing_key_bytes = [0u8; SECRET_KEY_LENGTH];
+    file.read_exact(&amp;mut signing_key_bytes)?;
+    let signing_key = SigningKey::from_bytes(&amp;signing_key_bytes);
+
+    // 签名
+    let signature = signing_key.sign(plaintext);
+    let signature_bytes = signature.to_bytes();
+
+    // 拼接签名文件和原文件
+    let mut sign_plain = Vec::with_capacity(signature_bytes.len() + plaintext.len());
+    sign_plain.extend_from_slice(&amp;signature_bytes);
+    sign_plain.extend_from_slice(plaintext);
+
+    // 读取密钥文件
+    let mut file = File::open(config_dir.join(AES_256_KYE_FILE))?;
+    let mut aes_256_key_bytes = [0u8; 32];
+    file.read_exact(&amp;mut aes_256_key_bytes)?;
+    let aes_256_key = Key::&lt;Aes256Gcm&gt;::from_slice(&amp;aes_256_key_bytes);
+
+    let cipher = Aes256Gcm::new(aes_256_key);
+    let nonce = Aes256Gcm::generate_nonce(&amp;mut OsRng);
+    let ciphertext = match cipher.encrypt(&amp;nonce, sign_plain.as_ref()) {
+	Ok(v) =&gt; v,
+	Err(e) =&gt; {
+	    return Err(anyhow::anyhow!("encrypt err: {}", e));
+	}
+    };
+    let mut nonce_cipher = Vec::with_capacity(nonce.len() + ciphertext.len());
+    nonce_cipher.extend_from_slice(&amp;nonce);
+    nonce_cipher.extend_from_slice(&amp;ciphertext);
+    Ok(nonce_cipher)
+}
+
+pub fn decrypt_and_verifying(nonce_cipher: &amp;[u8]) -&gt; anyhow::Result&lt;Vec&lt;u8&gt;&gt; {
+    let config_dir = Path::new(CONFIG_DIR);
+    if !config_dir.exists() {
+	fs::create_dir_all(config_dir)?;
+    }
+
+    let mut file = File::open(config_dir.join(AES_256_KYE_FILE))?;
+    let mut aes_256_key_bytes = [0u8; 32];
+    file.read_exact(&amp;mut aes_256_key_bytes)?;
+    let aes_256_key = Key::&lt;Aes256Gcm&gt;::from_slice(&amp;aes_256_key_bytes);
+    let cipher = Aes256Gcm::new(aes_256_key);
+    let nonce = &amp;nonce_cipher[..12];
+    let ciphertext = &amp;nonce_cipher[12..];
+    let sign_plain = match cipher.decrypt(nonce.into(), ciphertext) {
+	Ok(v) =&gt; v,
+	Err(e) =&gt; {
+	    return Err(anyhow::anyhow!("decrypt err: {}", e));
+	}
+    };
+
+    let signature_bytes = &amp;sign_plain[..SIGNATURE_LENGTH];
+    let signature_bytes: [u8; SIGNATURE_LENGTH] = signature_bytes.try_into()?;
+    let signature = Signature::from_bytes(&amp;signature_bytes);
+    let plaintext_bytes = &amp;sign_plain[SIGNATURE_LENGTH..];
+
+    let mut file = File::open(config_dir.join(VERIFYING_KEY_FILE))?;
+    let mut verifying_key_bytes = [0u8; PUBLIC_KEY_LENGTH];
+    file.read_exact(&amp;mut verifying_key_bytes)?;
+    let verifying_key = VerifyingKey::from_bytes(&amp;verifying_key_bytes)?;
+    match verifying_key.verify(plaintext_bytes, &amp;signature) {
+	Ok(_) =&gt; Ok(plaintext_bytes.to_vec()),
+	Err(e) =&gt; Err(anyhow::anyhow!("verify err: {}", e)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::Write;
+
+    use super::*;
+
+    #[test]
+    fn en_de_test() -&gt; anyhow::Result&lt;()&gt; {
+	let data_path = Path::new("./data");
+	if !data_path.exists() {
+	    fs::create_dir_all(data_path)?;
+	}
+	let message: &amp;[u8] = b"This is a test of the tsunami alert system.";
+	let message_file = "message.txt";
+	let output_file = "output.txt";
+	let mut file = File::create(data_path.join(message_file))?;
+	file.write_all(message)?;
+
+	let message = &amp;fs::read(data_path.join(message_file))?[..];
+	let tmp = sign_and_encrypt(message)?;
+	let output = decrypt_and_verifying(&amp;tmp)?;
+	let mut file = File::create(data_path.join(output_file))?;
+	file.write_all(&amp;output)?;
+	Ok(())
+    }
+}
+
+</pre>
+</div>
+</div>
+</div>
+<div id="outline-container-sec-4-3" class="outline-3">
+<h3 id="sec-4-3"><span class="section-number-3">4.3</span> 通过RESTful API提供签名加密服务</h3>
+<div class="outline-text-3" id="text-4-3">
+<p>
+提供了 RESTful API 服务，启动服务后，通过 curl 命令即可调用签名加密操作<br >
+需要将之前生成的签名密钥和加密密钥拷贝到 config 目录
+</p>
+
+<p>
+代码如下：
+</p>
+<div class="org-src-container">
+
+<pre class="src src-rust">use axum::{
+    Router,
+    extract::{DefaultBodyLimit, Multipart},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
+    response::IntoResponse,
+    routing::post,
+};
+
+use once_cell::sync::Lazy;
+use secure_vault::sign_and_encrypt;
+use serde::Deserialize;
+
+#[tokio::main]
+async fn main() -&gt; anyhow::Result&lt;()&gt; {
+    log4rs::init_file("./config/log4rs.yml", Default::default())?;
+    let app = Router::new()
+	.route("/", post(handler))
+	.layer(DefaultBodyLimit::max(1024 * 1024 * 1024 * 4));
+
+    let listener = tokio::net::TcpListener::bind(&amp;CONFIG_TOML.server.addr).await?;
+    log::info!("listening on {}", listener.local_addr()?);
+    axum::serve(listener, app).await?;
+    Ok(())
+}
+async fn handler(mut multipart: Multipart) -&gt; impl IntoResponse {
+    if let Some(field) = match multipart.next_field().await {
+	Ok(v) =&gt; v,
+	Err(e) =&gt; {
+	    log::error!("multipart.next_field err: {}", e);
+	    return StatusCode::BAD_REQUEST.into_response();
+	}
+    } {
+	if let Some(name) = field.name() {
+	    log::info!("name: {name}");
+	}
+	log::info!("file_name: {:?}", field.file_name());
+
+	if let Some(content_type) = field.content_type() {
+	    log::info!("content_type: {content_type}");
+	} else {
+	    log::error!("content_type none");
+	    return StatusCode::BAD_REQUEST.into_response();
+	}
+
+	let content_bytes = match field.bytes().await {
+	    Ok(bytes) =&gt; bytes,
+	    Err(e_bytes) =&gt; {
+		log::error!("get field bytes err: {}", e_bytes);
+		return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+	    }
+	};
+	let upgrade_pkg_bytes = match sign_and_encrypt(&amp;content_bytes) {
+	    Ok(v) =&gt; v,
+	    Err(e) =&gt; {
+		log::error!("upgrade pkg is illegal, err: {}", e);
+		return StatusCode::BAD_REQUEST.into_response();
+	    }
+	};
+	log::info!("sign_and_encrypt success, ready to download");
+	let mut headers = HeaderMap::new();
+	headers.insert(
+	    header::CONTENT_TYPE,
+	    HeaderValue::from_static("application/octet-stream"),
+	);
+	headers.insert(
+	    header::CONTENT_DISPOSITION,
+	    HeaderValue::from_static("attachment; filename=\"encrypted.bin\""),
+	);
+	(StatusCode::OK, headers, upgrade_pkg_bytes).into_response()
+    } else {
+	log::error!("not have field");
+	StatusCode::BAD_REQUEST.into_response()
+    }
+}
+
+static CONFIG_TOML: Lazy&lt;ServerToml&gt; = Lazy::new(|| {
+    config::Config::builder()
+	.add_source(config::File::with_name("./config/secure_vault.toml"))
+	.build()
+	.unwrap()
+	.try_deserialize::&lt;ServerToml&gt;()
+	.unwrap()
+});
+
+#[derive(Debug, Deserialize)]
+struct ServerToml {
+    server: Server,
+}
+
+#[derive(Debug, Deserialize)]
+struct Server {
+    addr: String,
+}
+</pre>
+</div>
+
+<p>
+curl 命令如下：
+</p>
+<div class="org-src-container">
+
+<pre class="src src-shell">curl -v -X POST http://127.0.0.1:2023/ \
+  -F "file=@shear_server_upgrade.tar.gz" \
+  -o shear_server_upgrade.bin
+</pre>
+</div>
+</div>
+</div>
+</div>
+
+<div id="outline-container-sec-5" class="outline-2">
+<h2 id="sec-5"><span class="section-number-2">5</span> 走过的弯路</h2>
+<div class="outline-text-2" id="text-5">
+</div><div id="outline-container-sec-5-1" class="outline-3">
+<h3 id="sec-5-1"><span class="section-number-3">5.1</span> 合并文件采用zip打包方式</h3>
+<div class="outline-text-3" id="text-5-1">
+<p>
+签名文件大小固定，nonce文件大小固定，有条件合并和分离文件<br >
+采用zip方式增加了开发量和依赖库，不是好办法
+</p>
+</div>
+</div>
+
+<div id="outline-container-sec-5-2" class="outline-3">
+<h3 id="sec-5-2"><span class="section-number-3">5.2</span> 密钥保存为明文可见字符</h3>
+<div class="outline-text-3" id="text-5-2">
+<p>
+密钥不需要传输，不需要给人看，没有必要转成明文，直接保存为二进制格式即可
+</p>
+</div>
+</div>
+</div>
+</div></div></div>
+<footer id="postamble" class="">
+<div><p class="date">Date: 2025-09-02</p>
+<p class="author">Author: 赵光建</p>
+<p class="date">Created: 2025-09-02 Tue 13:30</p>
+<p class="creator"><a href="http://www.gnu.org/software/emacs/">Emacs</a> 28.2 (<a href="http://orgmode.org">Org-mode</a> 9.5.5)</p>
+</div>
+</footer>
+</body>
+</html>

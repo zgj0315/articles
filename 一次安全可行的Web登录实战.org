@@ -1,0 +1,128 @@
+#+title: 一次安全可行的Web登录实战
+#+author: 赵光建
+#+date: 2025-09-02
+#+options: ^:nil
+
+* 为什么需要这么复杂的方案
+Web 登录过程面临多重安全威胁：暴力破解、密码泄露以及中间人攻击。\\
+仅仅依赖 HTTPS 传输并不能彻底解决问题：\\
+- 验证码：有效提高了暴力破解的成本；\\
+- 密码加密传输：在链路层之外进一步降低密码明文泄露的风险；\\
+- 动态密钥对：避免长期公钥暴露，能够显著增强对中间人截获的抵御能力。\\
+因此，一个综合性的安全登录方案是必要的。
+
+* 我的方案设计
+** 前端逻辑
+当用户打开登录页面时，前端会向后端请求验证码与公钥。后端返回的响应结构如下：
+#+begin_src json
+{
+    "base64_captcha": "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",
+    "public_key": "-----BEGIN RSA PUBLIC KEY-----\nMIIBCgKCAQEA16bMkmgmFZO0s0L72YKqZFcCHLD6xJ5XS5pvSKdD2kOiVdwNrCyT\ndm7lq/XPo6/KV/1y6i0ozCYSHdwA0fan3QspaqnWnMZC15TlRbpQFdO/Uxf/wtU8\n0/m9PKVJcoORAuPdHCrevcFpOVWHgtIgEUrx8w7DCwo1oGeT7J/mTrosdLkazFP8\nHDXtWnrSa5p8iXzemPpm8Cfbupk0x859Y0iPThu4+bhytCBvWl8RglQT2bkrvlUZ\n0AYz6ZHQcgRSkbtrUroS8CbOiqDbx13ygTIld3dcJVl2kjsXDbrNGGs2N5Y9IQN/\nrFk6MvNzLSNsnFS1N1Q2ZdH0o1qHZ1ZmVwIDAQAB\n-----END RSA PUBLIC KEY-----\n",
+    "uuid": "9f5af79d-fdc4-43c1-8c9f-733aa20e91a8"
+}
+#+end_src
+base64_captcha：验证码图片以 Base64 编码返回，内含噪点，增加了机器识别难度；\\
+public_key：RSA 公钥，前端使用该公钥对用户输入的密码进行加密，避免明文传输；\\
+uuid：用于标识验证码与密钥对，在后续登录请求时提交，后端可通过该值定位缓存中的对应数据。\\
+前端在提交登录请求时，会携带用户输入的账号、加密后的密码以及对应的 uuid
+
+** 后端逻辑
+为了平衡性能与安全性，后端采用“预生成 + 缓存备用”的方式：\\
+1. 预生成资源：后端在后台任务中持续生成并缓存验证码与密钥对，保持至少 10 组可用；\\
+2. 验证码下发：当前端请求登录页面时，从缓存中取出一组验证码与公钥返回；\\
+3. 登录校验：用户提交登录时，后端根据 uuid 从缓存中查找：\\
+  - 对比验证码输入是否正确；\\
+  - 使用对应的私钥解密前端提交的密码，并与数据库存储的哈希值进行验证。\\
+这种方式既能避免每次请求实时生成密钥带来的性能瓶颈，又能保证密钥对的动态性，降低了密钥泄露风险。
+
+* 代码实现
+fn captcha_cache_init：初始化缓存，用于存储 uuid 对应的验证码和解密私钥\\
+fn generate_captcha_task：生成验证码和密钥对存入队列\\
+fn generate_captcha：前端请求验证码时，从队列中获取验证码、uuid和加密公钥
+
+代码如下：
+#+begin_src rust
+pub fn captcha_cache_init() -> anyhow::Result<Cache<String, CaptchaEntry>> {
+    let eviction_listener =
+        move |uuid: Arc<String>, _captcha_entry: CaptchaEntry, removal_cause| match removal_cause {
+            RemovalCause::Expired => {
+                log::info!("Expired: {uuid}");
+            }
+            RemovalCause::Explicit => {
+                log::info!("Explicit: {uuid}");
+            }
+            RemovalCause::Replaced => {
+                log::info!("Replaced: {uuid}");
+            }
+            RemovalCause::Size => {
+                log::info!("Size: {uuid}");
+            }
+        };
+    let cache = Cache::builder()
+        .max_capacity(50_000)
+        .time_to_live(Duration::from_secs(60 * 10))
+        .eviction_listener(eviction_listener)
+        .build();
+    Ok(cache)
+}
+
+#[derive(Clone)]
+pub struct CaptchaEntry {
+    pub captcha: String,
+    pub private_key: RsaPrivateKey,
+}
+
+pub fn generate_captcha_task(
+    captcha_cache: Cache<String, CaptchaEntry>,
+    tx: async_channel::Sender<(String, String, String)>,
+) -> anyhow::Result<()> {
+    loop {
+        let mut rng_captcha = Captcha::new();
+        rng_captcha
+            .set_chars(&['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+            .add_chars(5)
+            .apply_filter(Noise::new(0.3))
+            .view(180, 60);
+
+        if let Some(base64_captcha) = rng_captcha.as_base64() {
+            let mut rng = rand::thread_rng(); // rand@0.8
+            let private_key = RsaPrivateKey::new(&mut rng, 2048).expect("failed to generate a key");
+            let public_key = RsaPublicKey::from(&private_key);
+            let public_key = public_key.to_pkcs1_pem(Default::default())?;
+            let uuid = uuid::Uuid::new_v4().to_string();
+            let captcha_entry = CaptchaEntry {
+                captcha: rng_captcha.chars_as_string(),
+                private_key,
+            };
+            captcha_cache.insert(uuid.clone(), captcha_entry);
+            log::info!("generate captcha {uuid}");
+            if let Err(e) = tx.send_blocking((uuid, base64_captcha, public_key)) {
+                log::error!("async_channel send err: {}", e);
+            }
+        }
+    }
+}
+
+async fn generate_captcha(app_state: State<AppState>) -> impl IntoResponse {
+    loop {
+        let (uuid, base64_captcha, public_key) = match app_state.captcha_rx.recv().await {
+            Ok(v) => v,
+            Err(e) => {
+                log::error!("async_channel recv err: {}", e);
+                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            }
+        };
+        if app_state.captcha_cache.contains_key(&uuid) {
+            return (
+                StatusCode::OK,
+                Json(json!({
+                    "uuid":uuid,
+                    "base64_captcha":base64_captcha,
+                    "public_key":public_key
+                })),
+            )
+                .into_response();
+        }
+    }
+}
+#+end_src

@@ -29,3 +29,6 @@
 4. git Web 页面上提交，合并
    New pull request
    Squash and merge
+5. 删除本地分支
+   git checkout main
+   git branch -D dev_zhangsan

@@ -1,4 +1,4 @@
-#+title: AI 辅助写代码实战
+#+title: AI写代码，一用一个不吱声
 #+author: 赵光建
 #+date: 2025-12-08
 #+options: ^:nil
